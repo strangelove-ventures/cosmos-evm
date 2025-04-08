@@ -26,3 +26,8 @@ type BankKeeper interface {
 	SendCoins(ctx context.Context, from, to sdk.AccAddress, amt sdk.Coins) error
 	SendCoinsFromAccountToModule(ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error
 }
+
+type ControlPanelKeeper interface {
+	IsSponsoredAddress(ctx context.Context, addr []byte) bool
+	GetSponsoredTransactionPriority(ctx context.Context) int64
+}

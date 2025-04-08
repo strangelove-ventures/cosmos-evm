@@ -96,6 +96,7 @@ func (suite *EvmAnteTestSuite) TestCanTransfer() {
 				ethCfg,
 				evmParams.Params,
 				tc.isLondon,
+				false,
 			)
 
 			if tc.expectedError != nil {

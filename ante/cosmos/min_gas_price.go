@@ -23,12 +23,21 @@ import (
 type MinGasPriceDecorator struct {
 	feemarketKeeper anteinterfaces.FeeMarketKeeper
 	evmKeeper       anteinterfaces.EVMKeeper
+	cpKeeper        anteinterfaces.ControlPanelKeeper
 }
 
 // NewMinGasPriceDecorator creates a new MinGasPriceDecorator instance used only for
 // Cosmos transactions.
-func NewMinGasPriceDecorator(fk anteinterfaces.FeeMarketKeeper, ek anteinterfaces.EVMKeeper) MinGasPriceDecorator {
-	return MinGasPriceDecorator{feemarketKeeper: fk, evmKeeper: ek}
+func NewMinGasPriceDecorator(
+	fk anteinterfaces.FeeMarketKeeper,
+	ek anteinterfaces.EVMKeeper,
+	ck anteinterfaces.ControlPanelKeeper,
+) MinGasPriceDecorator {
+	return MinGasPriceDecorator{
+		feemarketKeeper: fk,
+		evmKeeper:       ek,
+		cpKeeper:        ck,
+	}
 }
 
 func (mpd MinGasPriceDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (newCtx sdk.Context, err error) {
@@ -78,14 +87,17 @@ func (mpd MinGasPriceDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 		}
 	}
 
+	// If address is sponsored, skip the fee check
+	isSponsored := mpd.cpKeeper.IsSponsoredAddress(ctx, feeTx.FeePayer())
+
 	// Fees not provided (or flag "auto"). Then use the base fee to make the check pass
-	if feeCoins == nil {
+	if !isSponsored && feeCoins == nil {
 		return ctx, errorsmod.Wrapf(errortypes.ErrInsufficientFee,
 			"fee not provided. Please use the --fees flag or the --gas-price flag along with the --gas flag to estimate the fee. The minimum global fee for this tx is: %s",
 			requiredFees)
 	}
 
-	if !feeCoins.IsAnyGTE(requiredFees) {
+	if !isSponsored && !feeCoins.IsAnyGTE(requiredFees) {
 		return ctx, errorsmod.Wrapf(errortypes.ErrInsufficientFee,
 			"provided fee < minimum global fee (%s < %s). Please increase the gas price.",
 			feeCoins,

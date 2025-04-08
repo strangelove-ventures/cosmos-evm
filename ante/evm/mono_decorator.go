@@ -24,6 +24,7 @@ type MonoDecorator struct {
 	accountKeeper   anteinterfaces.AccountKeeper
 	feeMarketKeeper anteinterfaces.FeeMarketKeeper
 	evmKeeper       anteinterfaces.EVMKeeper
+	cpKeeper        anteinterfaces.ControlPanelKeeper
 	maxGasWanted    uint64
 }
 
@@ -37,12 +38,14 @@ func NewEVMMonoDecorator(
 	accountKeeper anteinterfaces.AccountKeeper,
 	feeMarketKeeper anteinterfaces.FeeMarketKeeper,
 	evmKeeper anteinterfaces.EVMKeeper,
+	cpKeeper anteinterfaces.ControlPanelKeeper,
 	maxGasWanted uint64,
 ) MonoDecorator {
 	return MonoDecorator{
 		accountKeeper:   accountKeeper,
 		feeMarketKeeper: feeMarketKeeper,
 		evmKeeper:       evmKeeper,
+		cpKeeper:        cpKeeper,
 		maxGasWanted:    maxGasWanted,
 	}
 }
@@ -89,11 +92,15 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		fee := sdkmath.LegacyNewDecFromBigInt(feeAmt)
 		gasLimit := sdkmath.LegacyNewDecFromBigInt(new(big.Int).SetUint64(gas))
 
+		// check if sponsored
+		sender, err := decUtils.Signer.Sender(ethMsg.AsTransaction())
+		isSponsored := err == nil && md.cpKeeper != nil && md.cpKeeper.IsSponsoredAddress(ctx, sender.Bytes())
+
 		// TODO: computation for mempool and global fee can be made using only
 		// the price instead of the fee. This would save some computation.
 		//
 		// 2. mempool inclusion fee
-		if ctx.IsCheckTx() && !simulate {
+		if !isSponsored && ctx.IsCheckTx() && !simulate {
 			// FIX: Mempool dec should be converted
 			if err := CheckMempoolFee(fee, decUtils.MempoolMinGasPrice, gasLimit, decUtils.Rules.IsLondon); err != nil {
 				return ctx, err
@@ -110,9 +117,12 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 			fee = sdkmath.LegacyNewDecFromBigInt(feeAmt)
 		}
 
+		// SKIP BELOW IF SPONSORED
 		// 3. min gas price (global min fee)
-		if err := CheckGlobalFee(fee, decUtils.GlobalMinGasPrice, gasLimit); err != nil {
-			return ctx, err
+		if !isSponsored {
+			if err := CheckGlobalFee(fee, decUtils.GlobalMinGasPrice, gasLimit); err != nil {
+				return ctx, err
+			}
 		}
 
 		// 4. validate msg contents
@@ -168,6 +178,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 			ethCfg,
 			decUtils.EvmParams,
 			decUtils.Rules.IsLondon,
+			isSponsored,
 		); err != nil {
 			return ctx, err
 		}
@@ -180,6 +191,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 			decUtils.Rules.IsHomestead,
 			decUtils.Rules.IsIstanbul,
 			ctx.IsCheckTx(),
+			isSponsored,
 		)
 		if err != nil {
 			return ctx, err
@@ -208,6 +220,11 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 			decUtils.MinPriority,
 			decUtils.BaseFee,
 		)
+
+		if isSponsored {
+			minPriority = md.cpKeeper.GetSponsoredTransactionPriority(ctx)
+		}
+
 		decUtils.MinPriority = minPriority
 
 		// Update the fee to be paid for the tx adding the fee specified for the
