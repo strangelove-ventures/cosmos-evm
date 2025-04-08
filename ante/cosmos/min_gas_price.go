@@ -88,7 +88,7 @@ func (mpd MinGasPriceDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 	}
 
 	// If address is sponsored, skip the fee check
-	isSponsored := mpd.cpKeeper.IsSponsoredAddress(ctx, feeTx.FeePayer())
+	isSponsored := mpd.cpKeeper != nil && mpd.cpKeeper.IsSponsoredAddress(ctx, feeTx.FeePayer())
 
 	// Fees not provided (or flag "auto"). Then use the base fee to make the check pass
 	if !isSponsored && feeCoins == nil {
