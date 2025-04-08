@@ -26,8 +26,9 @@ func CanTransfer(
 	ethCfg *params.ChainConfig,
 	params evmtypes.Params,
 	isLondon bool,
+	isSponsored bool,
 ) error {
-	if isLondon && msg.GasFeeCap().Cmp(baseFee) < 0 {
+	if !isSponsored && isLondon && msg.GasFeeCap().Cmp(baseFee) < 0 {
 		return errorsmod.Wrapf(
 			errortypes.ErrInsufficientFee,
 			"max fee per gas less than block base fee (%s < %s)",
