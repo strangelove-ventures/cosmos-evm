@@ -507,7 +507,7 @@ func (suite *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 
 			baseDenom := evmtypes.GetEVMCoinDenom()
 
-			fees, err := keeper.VerifyFee(txData, baseDenom, baseFee, false, false, suite.network.GetContext().IsCheckTx())
+			fees, err := keeper.VerifyFee(txData, baseDenom, baseFee, false, false, suite.network.GetContext().IsCheckTx(), false)
 			if tc.expectPassVerify {
 				suite.Require().NoError(err, "valid test %d failed - '%s'", i, tc.name)
 				if tc.enableFeemarket {
