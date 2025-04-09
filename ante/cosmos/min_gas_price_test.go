@@ -191,7 +191,7 @@ func (suite *AnteTestSuite) TestMinGasPriceDecorator() {
 		for _, tc := range testCases {
 			suite.Run(et.name+"_"+tc.name, func() {
 				ctx := ctx.WithIsReCheckTx(et.isCheckTx)
-				dec := cosmosante.NewMinGasPriceDecorator(nw.App.FeeMarketKeeper, nw.App.EVMKeeper)
+				dec := cosmosante.NewMinGasPriceDecorator(nw.App.FeeMarketKeeper, nw.App.EVMKeeper, nil)
 				_, err := dec.AnteHandle(ctx, tc.malleate(), et.simulate, testutil.NoOpNextFn)
 
 				if (et.name == "deliverTx" && tc.expPass) || (et.name == "deliverTxSimulate" && et.simulate && tc.allowPassOnSimulate) {

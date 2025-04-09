@@ -70,8 +70,16 @@ func VerifyFee(
 	txData types.TxData,
 	denom string,
 	baseFee *big.Int,
-	homestead, istanbul, isCheckTx bool,
+	homestead bool,
+	istanbul bool,
+	isCheckTx bool,
+	isSponsored bool,
 ) (sdk.Coins, error) {
+	// If sponsored, no need to deduct fees
+	if isSponsored {
+		return sdk.Coins{}, nil
+	}
+
 	isContractCreation := txData.GetTo() == nil
 
 	gasLimit := txData.GetGas()
